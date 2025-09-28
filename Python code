@@ -1,0 +1,50 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.stats import mannwhitneyu
+import pingouin
+
+#Load the files and convert the date columns to datetime data type
+men_results = pd.read_csv("men_results.csv", parse_dates=['date'])
+women_results = pd.read_csv("women_results.csv", parse_dates=['date'])
+
+#print(men_results.info())
+#print (women_results.info())
+
+#Filter for Fifa matches and matches after 2002-01-01
+women_fifa = women_results[(women_results["tournament"] == "FIFA World Cup") &(women_results["date"] >= "2002-01-01") ]
+
+men_fifa = men_results[(men_results["tournament"] == "FIFA World Cup") &(men_results["date"] >= "2002-01-01") ]
+
+#Create groups and total scored
+women_fifa["group"] = "women"
+men_fifa["group"] = "men"
+
+women_fifa["total_scores"] = women_fifa['home_score'] + women_fifa['away_score']
+men_fifa["total_scores"] = men_fifa['home_score'] + men_fifa['away_score']
+
+#Check if data is normally distributed to determine which hypothesis test to use
+plt.hist(x= women_fifa["total_scores"])
+plt.show()
+plt.clf()
+
+#Combine women's and men's data
+wm_fifa = pd.concat([women_fifa, men_fifa], axis=0, ignore_index=True)
+
+#Transform to wide
+wm_fifa_goals = wm_fifa[["total_scores", "group"]]
+wm_fifa_goals_wide = wm_fifa_goals.pivot(columns="group", values="total_scores")
+
+#Perform Hypothesis test
+results_mwu = pingouin.mwu(x=wm_fifa_goals_wide["women"],
+                         y=wm_fifa_goals_wide["men"],
+                         alternative="greater")
+
+#Confidence level and result
+alpha = 0.1
+p_val = results_mwu["p-val"].values[0]
+
+result = "reject" if p_val < alpha else "fail to reject"
+
+result_dict = {"p_val": p_val, "result": result}
+
+print(result_dict)
